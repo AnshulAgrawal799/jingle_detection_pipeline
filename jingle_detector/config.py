@@ -1,19 +1,17 @@
 
-DEFAULT_SR = 22050
-DTW_THRESH = 0.8
-CORR_THRESH = 0.8
-WIN_LEN = 2.5  # seconds
-HOP_LEN = 0.5  # seconds
-N_MELS = 64
+"""
+Configuration constants for jingle detection pipeline.
+HOP_LENGTH: Feature extraction hop length (samples).
+DEFAULT_BETA: Controls how quickly similarity decays with DTW avg distance.
+beta controls how quickly similarity decays with DTW avg distance.
+"""
 
-# DTW similarity mapping parameter
-DTW_BETA = 1.0
+HOP_LENGTH = 512
+DEFAULT_BETA = 1.0
 
-# Windowing
-WINDOW_STEP_S = 0.1
-WINDOW_SIZE_SLACK_S = 0.0  # can be set to small slack if needed
-
-# CLI defaults
-TOP_K = 5
-DEBUG = False
-REENCODE_BAD_MP3 = False
+# Typical audio processing configuration variables
+DEFAULT_SR = 22050  # Standard sample rate for audio analysis
+DTW_THRESH = 0.3    # Default threshold for DTW similarity
+CORR_THRESH = 0.3   # Default threshold for correlation similarity
+WIN_LEN = 2048      # Window length for feature extraction
+N_MELS = 128        # Number of Mel bands for spectrogram

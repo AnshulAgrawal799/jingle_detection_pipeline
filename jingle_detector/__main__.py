@@ -5,39 +5,59 @@ import logging
 from .audio_utils import load_audio, extract_chroma, extract_logmel
 from .detector import detect_dtw, detect_corr, DetectionResult
 from .plot_utils import plot_detection
-from .config import DEFAULT_SR, DTW_THRESH, CORR_THRESH, WIN_LEN, HOP_LEN, N_MELS
+from .config import DEFAULT_SR, DTW_THRESH, CORR_THRESH, WIN_LEN, HOP_LENGTH, N_MELS
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Jingle detection tool')
+    parser = argparse.ArgumentParser(description="Jingle detection pipeline")
     parser.add_argument('--jingle', required=True,
-                        help='Path to reference jingle mp3')
-    parser.add_argument('--targets', nargs='+', required=True,
-                        help='Target audio files to scan')
-    parser.add_argument('--output', required=True, help='CSV output path')
-    parser.add_argument('--plot_dir', default=None,
-                        help='Directory to save diagnostic plots')
-    parser.add_argument('--dtw_thresh', type=float, default=DTW_THRESH)
-    parser.add_argument('--corr_thresh', type=float, default=CORR_THRESH)
-    parser.add_argument('--win_len', type=float, default=WIN_LEN)
-    parser.add_argument('--hop_len', type=float, default=HOP_LEN)
-    parser.add_argument('--sr', type=int, default=DEFAULT_SR)
-    parser.add_argument('--n_mels', type=int, default=N_MELS)
+                        help='Path to jingle template audio')
+    parser.add_argument('--targets', nargs='+',
+                        required=True, help='Target audio files')
+    parser.add_argument('--plot_dir', default='output/plots',
+                        help='Directory for plots')
+    parser.add_argument(
+        '--output', default='output/detections.csv', help='Output CSV file')
     parser.add_argument('--debug', action='store_true',
-                        help='Enable debug diagnostics')
+                        help='Enable debug mode')
     parser.add_argument('--top_k', type=int, default=5,
-                        help='Export top-K candidate matches')
-    parser.add_argument('--reencode-bad-mp3', action='store_true',
-                        help='Re-encode bad MP3s to WAV if header warnings')
+                        help='Number of top candidates to keep')
+    parser.add_argument('--reencode-bad-mp3',
+                        action='store_true', help='Always re-encode MP3s')
     parser.add_argument('--threshold-dtw', type=float,
-                        default=DTW_THRESH, help='DTW similarity threshold')
+                        default=0.3, help='DTW similarity threshold')
     parser.add_argument('--threshold-corr', type=float,
-                        default=CORR_THRESH, help='Correlation similarity threshold')
+                        default=0.3, help='Correlation threshold')
+    parser.add_argument('--window_step_s', type=float,
+                        default=0.1, help='Sliding window step (seconds)')
+    parser.add_argument('--window_size_s', type=float,
+                        default=None, help='Sliding window size (seconds)')
     args = parser.parse_args()
 
+    # Handle missing sr gracefully
+    if not hasattr(args, 'sr') or args.sr is None:
+        args.sr = DEFAULT_SR
+
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    if args.plot_dir:
+        os.makedirs(args.plot_dir, exist_ok=True)
+
+    from . import detector
+    detector.process_target(
+        jingle_path=args.jingle,
+        target_paths=args.targets,
+        plot_dir=args.plot_dir,
+        output_csv=args.output,
+        debug=args.debug,
+        top_k=args.top_k,
+        reencode_bad_mp3=args.reencode_bad_mp3,
+        threshold_dtw=args.threshold_dtw,
+        threshold_corr=args.threshold_corr,
+        window_step_s=args.window_step_s,
+        window_size_s=args.window_size_s
+    )
     if args.plot_dir:
         os.makedirs(args.plot_dir, exist_ok=True)
 
@@ -62,62 +82,6 @@ def main():
             print(f"[DEBUG] Target: sr={sr}, length={target_len:.2f}s")
             print(
                 f"[DEBUG] Target chroma shape: {chroma.shape}, logmel shape: {logmel.shape}")
-
-        # DTW detection
-        dtw_top, dtw_raw = detect_dtw(
-            jingle_chroma, chroma, sr, args.win_len, args.hop_len, top_k=args.top_k, thresh=args.threshold_dtw, beta=1.0, debug=args.debug)
-        # Correlation detection
-        corr_top, corr_raw = detect_corr(
-            jingle_logmel, logmel, sr, args.win_len, args.hop_len, top_k=args.top_k, thresh=args.threshold_corr, debug=args.debug)
-
-        results = []
-        for start, end, score in dtw_top:
-            results.append(DetectionResult(os.path.basename(
-                target_path), start, end, score, 'dtw'))
-        for start, end, score in corr_top:
-            results.append(DetectionResult(os.path.basename(
-                target_path), start, end, score, 'correlation'))
-
-        if args.plot_dir:
-            plot_detection(y, sr, dtw_top + corr_top,
-                           os.path.join(args.plot_dir, os.path.basename(
-                               target_path) + '_detections.png'),
-                           f'Detections in {os.path.basename(target_path)}')
-
-        # Debug: print top 10 raw scores for each method
-        if args.debug:
-            print(
-                f"[DEBUG] Top 10 DTW scores: {[round(x[3],3) for x in sorted(dtw_raw, key=lambda x: -x[3])[:10]]}")
-            print(
-                f"[DEBUG] Top 10 Corr scores: {[round(x[3],3) for x in sorted(corr_raw, key=lambda x: -x[3])[:10]]}")
-            max_dtw = max(dtw_raw, key=lambda x: x[3])
-            max_corr = max(corr_raw, key=lambda x: x[3])
-            print(
-                f"[DEBUG] Max DTW sim: {max_dtw[3]:.3f} at {max_dtw[0]/sr:.2f}s")
-            print(
-                f"[DEBUG] Max Corr sim: {max_corr[3]:.3f} at {max_corr[0]/sr:.2f}s")
-
-        # Print summary per file
-        if results:
-            highest_dtw = max(
-                [r.score for r in results if r.method == 'dtw'], default=0)
-            highest_corr = max(
-                [r.score for r in results if r.method == 'correlation'], default=0)
-            logging.info(
-                f"{len(results)} candidates found (highest score dtw={highest_dtw:.2f}, corr={highest_corr:.2f})")
-        else:
-            results.append(DetectionResult(os.path.basename(
-                target_path), '-', '-', '-', 'no detection'))
-            logging.info('No jingle detected.')
-        all_results.extend(results)
-
-    # Write CSV
-    with open(args.output, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['filename', 'start_s', 'end_s', 'score', 'method'])
-        for r in all_results:
-            writer.writerow(r.to_row())
-    logging.info(f'CSV written to {args.output}')
 
 
 if __name__ == '__main__':
