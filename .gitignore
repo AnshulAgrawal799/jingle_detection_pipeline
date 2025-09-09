@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+*.ipynb_convert
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Audio files (optional — if you don’t want to track large raw mp3/wav test data)
+*.mp3
+*.wav
+
+# Project outputs
+output/
+plots/
+*.csv
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
