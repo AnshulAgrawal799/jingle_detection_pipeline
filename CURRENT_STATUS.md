@@ -8,7 +8,9 @@
   - Files starting with `wow_` contain jingles (positive class)
   - Files starting with `rec1_` or other new files in `audio/` (except those starting with `wow_`) do **not** contain jingles (negative class)
 - **Detection Candidates:**
-  - `output/detections.csv` contains detection windows (filename, method, rank, start_s, score)
+  - Detection results are now written to a separate file for each target audio file.
+  - The output file will be named like `output/detections_<targetfilename>.csv` (e.g., `output/detections_wow_chunk_000.csv`).
+  - This makes it easy to match results to input files and avoids overwriting results when running on multiple files.
 - **Waveform Plots:**
   - Plots with detection overlays for both wow and rec1 files
 
@@ -88,6 +90,9 @@
 # Regenerate features (ensure wow_jingle.mp3 positives are in train set):
 python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/train_meta.csv --out_dir ./features
 python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/val_meta.csv --out_dir ./features
+
+# Run detection with faster window step (0.5s):
+python -m jingle_detector --jingle jingle_audio/wow_jingle.mp3 --targets audio/YOUR_FILE.mp3 --output output/detections.csv --window_step_s 0.5
 
 # Retrain models:
 python jingle_detector/train_baseline.py --features_dir ./features --model_out ./models/baseline_model.joblib

@@ -28,4 +28,12 @@
 
 ## Example Run
 
-See `scripts/debug_run.sh` for a sample debug invocation.
+To run detection on a file and save results with the new naming convention:
+
+```powershell
+python -m jingle_detector --jingle jingle_audio/wow_jingle.mp3 --targets audio/wow_chunk_000.mp3 --output output/detections.csv --window_step_s 2.5
+python -m jingle_detector --jingle jingle_audio/wow_jingle.mp3 --targets audio/rec1_chunk_000.mp3 --output output/detections.csv --window_step_s 2.5
+python -m jingle_detector --jingle jingle_audio/wow_jingle.mp3 --targets audio/chunk_003.mp3 --output output/detections.csv --window_step_s 2.5
+```
+
+This will produce `output/detections_wow_chunk_000.csv`, `output/detections_rec1_chunk_000.csv`, and `output/detections_chunk_003.csv` respectively.

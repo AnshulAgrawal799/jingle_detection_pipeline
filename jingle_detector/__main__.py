@@ -12,6 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 def main():
     parser = argparse.ArgumentParser(description="Jingle detection pipeline")
+    parser.add_argument('--n_mels', type=int, default=64,
+                        help='Number of mel bands for log-mel spectrogram')
     parser.add_argument('--jingle', required=True,
                         help='Path to jingle template audio')
     parser.add_argument('--targets', nargs='+',
@@ -45,24 +47,33 @@ def main():
         os.makedirs(args.plot_dir, exist_ok=True)
 
     from . import detector
-    detector.process_target(
-        jingle_path=args.jingle,
-        target_paths=args.targets,
-        plot_dir=args.plot_dir,
-        output_csv=args.output,
-        debug=args.debug,
-        top_k=args.top_k,
-        reencode_bad_mp3=args.reencode_bad_mp3,
-        threshold_dtw=args.threshold_dtw,
-        threshold_corr=args.threshold_corr,
-        window_step_s=args.window_step_s,
-        window_size_s=args.window_size_s
-    )
+    # Dynamically generate output file name for each target
+    for target_path in args.targets:
+        target_base = os.path.splitext(os.path.basename(target_path))[0]
+        output_csv = args.output
+        # Insert target file name before .csv
+        if output_csv.endswith('.csv'):
+            output_csv = output_csv[:-4] + f'_{target_base}.csv'
+        else:
+            output_csv = output_csv + f'_{target_base}.csv'
+        detector.process_target(
+            jingle_path=args.jingle,
+            target_paths=[target_path],
+            plot_dir=args.plot_dir,
+            output_csv=output_csv,
+            debug=args.debug,
+            top_k=args.top_k,
+            reencode_bad_mp3=args.reencode_bad_mp3,
+            threshold_dtw=args.threshold_dtw,
+            threshold_corr=args.threshold_corr,
+            window_step_s=args.window_step_s,
+            window_size_s=args.window_size_s
+        )
     if args.plot_dir:
         os.makedirs(args.plot_dir, exist_ok=True)
 
     # Load jingle
-    jingle_y, sr = load_audio(args.jingle, sr=args.sr)
+    jingle_y, sr, _ = load_audio(args.jingle, sr=args.sr)
     jingle_chroma = extract_chroma(jingle_y, sr)
     jingle_logmel = extract_logmel(jingle_y, sr, n_mels=args.n_mels)
     jingle_len = len(jingle_y) / sr
@@ -74,7 +85,7 @@ def main():
     all_results = []
     for target_path in args.targets:
         logging.info(f'Processing {target_path}...')
-        y, sr = load_audio(target_path, sr=args.sr)
+        y, sr, _ = load_audio(target_path, sr=args.sr)
         target_len = len(y) / sr
         chroma = extract_chroma(y, sr)
         logmel = extract_logmel(y, sr, n_mels=args.n_mels)
