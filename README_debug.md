@@ -1,12 +1,24 @@
 # Jingle Detection Pipeline Debug Mode
 
+## Important Limitation: No Reliable Binary Jingle Detection
+
+**This repository does NOT provide a reliable, validated method to automatically distinguish between audios that contain a jingle and those that do not.**
+
+- The current pipeline outputs top-K candidate segments with similarity scores (DTW/correlation), but does not make a binary decision ("jingle present" or "jingle absent").
+- In debug mode, thresholds are not applied; all top-K candidates are shown, regardless of match quality.
+- In non-debug mode, thresholds are user-defined and not calibrated for reliable detection. The score scales are arbitrary and not interpretable as probabilities.
+- There is no recommended threshold or guidance for making presence/absence decisions based on the scores.
+- As a result, **the outputs (including the attached CSVs) cannot be reliably used to decide if a jingle is present or absent in an audio file.**
+
+**Users must interpret the results manually and with caution.**
+
 ## Debug Mode Output
 
 - Prints sample rate, audio length, template length, feature shapes.
 - Shows top-10 DTW and cross-correlation candidates (raw, normalized, mapped, timestamps).
 - Reports global maxima for each method and their timestamps.
 - Writes top-K candidate snippets to `output/snippets/`.
-- In debug mode, thresholds are not applied; all top-K candidates are shown in CSV.
+- **In debug mode, thresholds are not applied; all top-K candidates are shown in CSV, regardless of whether a jingle is actually present.**
 
 ## DTW Similarity Mapping
 
