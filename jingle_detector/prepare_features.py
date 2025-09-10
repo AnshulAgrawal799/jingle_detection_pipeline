@@ -223,29 +223,55 @@ def main():
                     {'filename': fname, 'start_s': start_s, 'label': 0, 'source': 'random_neg'})
 
     meta_df = pd.DataFrame(meta_rows)
-    # Improved file-wise split: guarantee at least one wow and one rec1 in both train and val
+    # Improved split: always assign wow_jingle.mp3 windows to train set
     unique_files = meta_df['filename'].unique()
     wow_files = [f for f in unique_files if f.startswith('wow')]
     rec1_files = [f for f in unique_files if f.startswith('rec1')]
     np.random.seed(RANDOM_SEED)
     np.random.shuffle(wow_files)
     np.random.shuffle(rec1_files)
-    # Always at least one wow and one rec1 in both splits
-    n_val_wow = min(max(1, int(0.2 * len(wow_files))),
-                    len(wow_files)-1 if len(wow_files) > 1 else 1)
+
+    # Guarantee at least one wow file in val, even if only one wow file
+    if len(wow_files) > 1:
+        n_val_wow = min(max(1, int(0.2 * len(wow_files))), len(wow_files)-1)
+        n_train_wow = len(wow_files) - n_val_wow
+        train_wow_files = list(wow_files[:n_train_wow])
+        val_wow_files = list(wow_files[n_train_wow:])
+    elif len(wow_files) == 1:
+        # Split windows from the single wow file between train and val
+        wow_file = wow_files[0]
+        wow_rows = meta_df[meta_df['filename'] == wow_file]
+        n_val = max(1, int(0.2 * len(wow_rows)))
+        val_wow_idx = wow_rows.sample(n=n_val, random_state=RANDOM_SEED).index
+        train_wow_idx = wow_rows.index.difference(val_wow_idx)
+    else:
+        train_wow_files = []
+        val_wow_files = []
+
     n_val_rec1 = min(max(1, int(0.2 * len(rec1_files))),
                      len(rec1_files)-1 if len(rec1_files) > 1 else 1)
-    n_train_wow = len(wow_files) - n_val_wow
     n_train_rec1 = len(rec1_files) - n_val_rec1
-    train_files = list(wow_files[:n_train_wow]) + \
-        list(rec1_files[:n_train_rec1])
-    val_files = list(wow_files[n_train_wow:]) + list(rec1_files[n_train_rec1:])
+    train_rec1_files = list(rec1_files[:n_train_rec1])
+    val_rec1_files = list(rec1_files[n_train_rec1:])
+
     # If there are files that are neither wow nor rec1, add them to train
-    other_files = [f for f in unique_files if not (
-        f.startswith('wow') or f.startswith('rec1'))]
-    train_files += other_files
-    train_idx = meta_df['filename'].isin(train_files)
-    val_idx = meta_df['filename'].isin(val_files)
+    other_files = [f for f in unique_files if not (f.startswith(
+        'wow') or f.startswith('rec1')) and f != 'wow_jingle.mp3']
+
+    if len(wow_files) == 1:
+        # Use index-based split for the single wow file
+        train_idx = (meta_df['filename'].isin(train_rec1_files + other_files)) | (
+            meta_df['filename'] == 'wow_jingle.mp3') | (meta_df.index.isin(train_wow_idx))
+        val_idx = (meta_df['filename'].isin(val_rec1_files)) | (
+            meta_df.index.isin(val_wow_idx))
+    else:
+        train_files = train_wow_files + train_rec1_files + other_files
+        val_files = val_wow_files + val_rec1_files
+        train_idx = (meta_df['filename'].isin(train_files)) | (
+            meta_df['filename'] == 'wow_jingle.mp3')
+        val_idx = (meta_df['filename'].isin(val_files)) & (
+            meta_df['filename'] != 'wow_jingle.mp3')
+
     train_meta = meta_df[train_idx].reset_index(drop=True)
     val_meta = meta_df[val_idx].reset_index(drop=True)
 

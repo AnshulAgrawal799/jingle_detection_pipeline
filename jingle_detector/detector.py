@@ -221,9 +221,10 @@ def process_target(jingle_path, target_paths, plot_dir, output_csv,
                 'norm_distance': norm_distance,
                 'sim': sim
             })
-            if idx > 10:
-                print("[DEBUG] Breaking after 10 DTW windows for diagnosis.")
-                break
+            # Remove debug break to process all windows
+            # if idx > 10:
+            #     print("[DEBUG] Breaking after 10 DTW windows for diagnosis.")
+            #     break
         print("[DEBUG] Finished DTW sliding window")
 
         print("[DEBUG] Starting cross-correlation sliding window")
@@ -316,6 +317,7 @@ def process_target(jingle_path, target_paths, plot_dir, output_csv,
             print("WARNING: All candidates at 0s — check sliding window step_frames/window_frames and hop_length consistency.")
 
         # Accumulate results for CSV
+        # Always write at least one row per file (even if no candidates)
         if dtw_sorted or corr_sorted:
             for i, c in enumerate(dtw_sorted):
                 all_results.append([
@@ -325,7 +327,7 @@ def process_target(jingle_path, target_paths, plot_dir, output_csv,
                     os.path.basename(target_path), 'corr', i+1, c['start_s'], c['r_mapped']])
         else:
             all_results.append([
-                os.path.basename(target_path), 'none', '', '', ''])
+                os.path.basename(target_path), 'none', '', '', 0.0])
             print(
                 f"[DEBUG] No candidates found for {os.path.basename(target_path)}; will write 'none' row to CSV.")
 

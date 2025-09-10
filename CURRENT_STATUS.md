@@ -6,7 +6,7 @@
 - **Audio Data:**
   - Located in `audio/`
   - Files starting with `wow_` contain jingles (positive class)
-  - Files starting with `rec1_` do **not** contain jingles (negative class)
+  - Files starting with `rec1_` or other new files in `audio/` (except those starting with `wow_`) do **not** contain jingles (negative class)
 - **Detection Candidates:**
   - `output/detections.csv` contains detection windows (filename, method, rank, start_s, score)
 - **Waveform Plots:**
@@ -56,7 +56,7 @@
   **Data Preparation & Feature Extraction** (`prepare_features.py`):
 - Loads audio and candidate CSV
 - Extracts windows, labels, metadata
-- 20 positive training windows from `jingle_audio/wow_jingle.mp3` have been added to `features/train_meta.csv` for improved model learning
+- Positive training windows from `jingle_audio/wow_jingle.mp3` are now always included in `features/train_meta.csv` for improved model learning (fix applied to always ensure positives in train set)
 - Computes log-mel and tabular features
 - Normalizes tabular features
 - Saves train/val splits, features, metadata
@@ -69,7 +69,7 @@
 
 ## What’s Next / To Do
 
-- [ ] Regenerate features for train/val with new positives:
+- [ ] Regenerate features for train/val with new positives (now always included in train):
   ```bash
   python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/train_meta.csv --out_dir ./features
   python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/val_meta.csv --out_dir ./features
@@ -85,8 +85,11 @@
 ## Example Commands
 
 ```bash
+# Regenerate features (ensure wow_jingle.mp3 positives are in train set):
 python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/train_meta.csv --out_dir ./features
 python jingle_detector/prepare_features.py --audio_dir ./audio --csv_path ./features/val_meta.csv --out_dir ./features
+
+# Retrain models:
 python jingle_detector/train_baseline.py --features_dir ./features --model_out ./models/baseline_model.joblib
 python jingle_detector/train_cnn.py --features_dir ./features --model_out ./models/cnn_model.pt
 ```
