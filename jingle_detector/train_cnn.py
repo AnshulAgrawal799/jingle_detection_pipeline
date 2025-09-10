@@ -101,19 +101,21 @@ def train(model, loader, optimizer, criterion, device):
     return total_loss / len(loader.dataset)
 
 
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, return_probs=False):
     model.eval()
-    y_true, y_pred = [], []
-    threshold = 0.3  # Lowered threshold for positive class
+    y_true, y_pred, y_probs = [], [], []
+    threshold = 0.3  # Default threshold for positive class
     with torch.no_grad():
         for X, y in loader:
             X = X.to(device)
             logits = model(X)
-            # Probability for class 1
             probs = torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
             pred = (probs >= threshold).astype(int)
             y_pred.extend(pred)
             y_true.extend(y.numpy())
+            y_probs.extend(probs)
+    if return_probs:
+        return np.array(y_true), np.array(y_pred), np.array(y_probs)
     return np.array(y_true), np.array(y_pred)
 
 
@@ -150,20 +152,36 @@ def main():
     criterion = nn.CrossEntropyLoss(weight=weight.to(device))
 
     best_f1 = 0
+    best = None
+    from sklearn.metrics import roc_auc_score
     for epoch in range(args.epochs):
         loss = train(model, train_loader, optimizer, criterion, device)
-        y_true, y_pred = evaluate(model, val_loader, device)
-        p, r, f1, _ = precision_recall_fscore_support(
-            y_true, y_pred, average='binary', zero_division=0)
+        y_true, y_pred, y_probs = evaluate(
+            model, val_loader, device, return_probs=True)
+        thresholds = np.linspace(0, 1, 101)
+        for threshold in thresholds:
+            y_pred_thresh = (y_probs >= threshold).astype(int)
+            p, r, f1, _ = precision_recall_fscore_support(
+                y_true, y_pred_thresh, average='binary', zero_division=0)
+            cm = confusion_matrix(y_true, y_pred_thresh)
+            if f1 > best_f1:
+                best_f1 = f1
+                best = dict(epoch=epoch+1, threshold=threshold,
+                            precision=p, recall=r, f1=f1, cm=cm)
+        roc_auc = roc_auc_score(y_true, y_probs)
         print(
-            f"Epoch {epoch+1}: loss={loss:.4f} val_f1={f1:.3f} val_p={p:.3f} val_r={r:.3f}")
-        if f1 > best_f1:
-            best_f1 = f1
+            f"Epoch {epoch+1}: loss={loss:.4f} val_f1={best_f1:.3f} val_p={best['precision']:.3f} val_r={best['recall']:.3f}")
+        if best['f1'] == best_f1:
             torch.save(model.state_dict(), args.model_out)
             print(f"[INFO] Saved best model to {args.model_out}")
-    # Final confusion matrix
-    cm = confusion_matrix(y_true, y_pred)
-    print("Confusion matrix:\n", cm)
+    print(
+        f"Best F1: {best['f1']:.3f} at threshold {best['threshold']:.2f} (epoch {best['epoch']})")
+    print(f"Precision: {best['precision']:.3f}, Recall: {best['recall']:.3f}")
+    print("Confusion matrix:\n", best['cm'])
+    print(f"ROC AUC: {roc_auc:.3f}")
+    # Optionally save per-window scores for later eval
+    np.savez(os.path.join(os.path.dirname(args.model_out),
+             'val_scores_cnn.npz'), y_val=y_true, y_proba=y_probs)
 
 
 if __name__ == '__main__':
