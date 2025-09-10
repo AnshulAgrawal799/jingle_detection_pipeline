@@ -1,4 +1,7 @@
 librosa
 numpy
-scipy
-matplotlib
+scikit-learn
+soundfile
+tqdm
+joblib
+torch

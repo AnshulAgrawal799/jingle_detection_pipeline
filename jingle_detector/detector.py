@@ -35,12 +35,17 @@ def detect_dtw(jingle_path, target_path, top_k=5, threshold_dtw=0.3, reencode_ba
             y=template_audio, sr=sr, hop_length=hop_length, n_fft=hop_length*2)
         mel = librosa.feature.melspectrogram(
             y=template_audio, sr=sr, n_fft=hop_length*2, hop_length=hop_length, n_mels=config.N_MELS)
+        mel = librosa.power_to_db(mel, ref=np.max)
+        mel = (mel - np.mean(mel)) / (np.std(mel) + 1e-6)
         target_audio, sr_t, _ = audio_utils.load_audio(
             target_paths[0], sr=sr, reencode_bad_mp3=reencode_bad_mp3)
         target_chroma = librosa.feature.chroma_stft(
             y=target_audio, sr=sr, hop_length=hop_length, n_fft=hop_length*2)
         target_mel = librosa.feature.melspectrogram(
             y=target_audio, sr=sr, n_fft=hop_length*2, hop_length=hop_length, n_mels=config.N_MELS)
+        target_mel = librosa.power_to_db(target_mel, ref=np.max)
+        target_mel = (target_mel - np.mean(target_mel)) / \
+            (np.std(target_mel) + 1e-6)
         template_frames = chroma.shape[1]
         n_target_frames = target_chroma.shape[1]
         # Diagnostic output
